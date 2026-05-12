@@ -1,0 +1,161 @@
+name: Build and Release C Libraries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libomp-dev
+    
+    - name: Build C libraries
+      run: |
+        make clean
+        make
+    
+    - name: Prepare artifacts
+      run: |
+        mkdir -p artifacts
+        cp libdna_sequential.so artifacts/libdna_sequential_linux_x86_64.so
+        cp libdna_parallel.so artifacts/libdna_parallel_linux_x86_64.so
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-x86_64-libs
+        path: artifacts/
+
+  build-macos-x86_64:
+    runs-on: macos-12
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install build dependencies
+      run: |
+        brew install libomp
+    
+    - name: Build C libraries
+      run: |
+        make clean
+        make
+    
+    - name: Prepare artifacts
+      run: |
+        mkdir -p artifacts
+        cp libdna_sequential.so artifacts/libdna_sequential_macos_x86_64.so
+        cp libdna_parallel.so artifacts/libdna_parallel_macos_x86_64.so
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: macos-x86_64-libs
+        path: artifacts/
+
+  build-macos-aarch64:
+    runs-on: macos-14
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install build dependencies
+      run: |
+        brew install libomp
+    
+    - name: Build C libraries
+      run: |
+        make clean
+        make
+    
+    - name: Prepare artifacts
+      run: |
+        mkdir -p artifacts
+        cp libdna_sequential.so artifacts/libdna_sequential_macos_aarch64.so
+        cp libdna_parallel.so artifacts/libdna_parallel_macos_aarch64.so
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: macos-aarch64-libs
+        path: artifacts/
+
+  build-linux-aarch64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up QEMU for ARM64 emulation
+      uses: docker/setup-qemu-action@v2
+    
+    - name: Build C libraries for ARM64
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile.arm64
+        push: false
+        outputs: type=local,dest=./artifacts
+    
+    - name: Rename artifacts
+      run: |
+        mv artifacts/libdna_sequential.so artifacts/libdna_sequential_linux_aarch64.so 2>/dev/null || true
+        mv artifacts/libdna_parallel.so artifacts/libdna_parallel_linux_aarch64.so 2>/dev/null || true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-aarch64-libs
+        path: artifacts/
+      continue-on-error: true
+
+  create-release:
+    name: Create GitHub Release with C Libraries
+    needs: [build-linux-x86_64, build-macos-x86_64, build-macos-aarch64]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: all_libs
+    
+    - name: Organize artifacts for release
+      run: |
+        mkdir -p release_libs
+        find all_libs -name "*.so" -exec cp {} release_libs/ \;
+        ls -la release_libs/
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: release_libs/*.so
+        body: |
+          # C Libraries Release ${{ github.ref_name }}
+          
+          Pre-compiled DNA sequence generator C libraries for biocomputing_core.
+          
+          **Included Libraries:**
+          - Linux x86_64: `libdna_sequential_linux_x86_64.so`, `libdna_parallel_linux_x86_64.so`
+          - macOS x86_64: `libdna_sequential_macos_x86_64.so`, `libdna_parallel_macos_x86_64.so`
+          - macOS aarch64 (Apple Silicon): `libdna_sequential_macos_aarch64.so`, `libdna_parallel_macos_aarch64.so`
+          - Linux aarch64: `libdna_sequential_linux_aarch64.so`, `libdna_parallel_linux_aarch64.so`
+          
+          These libraries are automatically downloaded by the Python biocomputing package during installation.
+          
+          **Repository:** https://github.com/sigdelsanjog/biocomputing_core
+          **Build Date:** ${{ github.event.head_commit.timestamp }}
+          **Commit:** ${{ github.sha }}
+        draft: false
+        prerelease: false
+        tag_name: ${{ github.ref_name }}
