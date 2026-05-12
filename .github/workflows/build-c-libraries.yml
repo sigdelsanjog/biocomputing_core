@@ -2,6 +2,9 @@ name: Build and Release C Libraries
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -37,61 +40,10 @@ jobs:
         name: linux-x86_64-libs
         path: artifacts/
 
-  build-macos-x86_64:
-    runs-on: macos-12
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install build dependencies
-      run: |
-        brew install libomp
-    
-    - name: Build C libraries
-      run: |
-        make clean
-        make
-    
-    - name: Prepare artifacts
-      run: |
-        mkdir -p artifacts
-        cp libdna_sequential.so artifacts/libdna_sequential_macos_x86_64.so
-        cp libdna_parallel.so artifacts/libdna_parallel_macos_x86_64.so
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: macos-x86_64-libs
-        path: artifacts/
-
-  build-macos-aarch64:
-    runs-on: macos-14
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install build dependencies
-      run: |
-        brew install libomp
-    
-    - name: Build C libraries
-      run: |
-        make clean
-        make
-    
-    - name: Prepare artifacts
-      run: |
-        mkdir -p artifacts
-        cp libdna_sequential.so artifacts/libdna_sequential_macos_aarch64.so
-        cp libdna_parallel.so artifacts/libdna_parallel_macos_aarch64.so
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: macos-aarch64-libs
-        path: artifacts/
-
   create-release:
     name: Create GitHub Release with C Libraries
-    needs: [build-linux-x86_64, build-macos-x86_64, build-macos-aarch64]
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-linux-x86_64
     runs-on: ubuntu-latest
     
     steps:
@@ -120,8 +72,6 @@ jobs:
           
           **Included Libraries:**
           - Linux x86_64: `libdna_sequential_linux_x86_64.so`, `libdna_parallel_linux_x86_64.so`
-          - macOS x86_64: `libdna_sequential_macos_x86_64.so`, `libdna_parallel_macos_x86_64.so`
-          - macOS aarch64 (Apple Silicon): `libdna_sequential_macos_aarch64.so`, `libdna_parallel_macos_aarch64.so`
           
           These libraries are automatically downloaded by the Python biocomputing package during installation.
           
