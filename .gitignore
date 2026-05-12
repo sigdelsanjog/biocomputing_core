@@ -1,0 +1,8 @@
+*.so
+*.o
+*.a
+seq_test
+par_test
+.DS_Store
+*.swp
+*~
