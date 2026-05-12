@@ -32,7 +32,7 @@ jobs:
         cp libdna_parallel.so artifacts/libdna_parallel_linux_x86_64.so
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: linux-x86_64-libs
         path: artifacts/
@@ -58,7 +58,7 @@ jobs:
         cp libdna_parallel.so artifacts/libdna_parallel_macos_x86_64.so
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: macos-x86_64-libs
         path: artifacts/
@@ -84,38 +84,10 @@ jobs:
         cp libdna_parallel.so artifacts/libdna_parallel_macos_aarch64.so
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: macos-aarch64-libs
         path: artifacts/
-
-  build-linux-aarch64:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up QEMU for ARM64 emulation
-      uses: docker/setup-qemu-action@v2
-    
-    - name: Build C libraries for ARM64
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        file: ./Dockerfile.arm64
-        push: false
-        outputs: type=local,dest=./artifacts
-    
-    - name: Rename artifacts
-      run: |
-        mv artifacts/libdna_sequential.so artifacts/libdna_sequential_linux_aarch64.so 2>/dev/null || true
-        mv artifacts/libdna_parallel.so artifacts/libdna_parallel_linux_aarch64.so 2>/dev/null || true
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: linux-aarch64-libs
-        path: artifacts/
-      continue-on-error: true
 
   create-release:
     name: Create GitHub Release with C Libraries
@@ -126,9 +98,10 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: all_libs
+        pattern: '*-libs'
     
     - name: Organize artifacts for release
       run: |
